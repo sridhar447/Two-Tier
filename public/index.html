@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CYBERTRACK 3D — Two-Tier Race Application</title>
+  <!-- Three.js from Cloudflare CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html {
+      width: 100%;
+      background: #04060d;
+      color: #f0f4fc;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      overflow-x: hidden;
+      scroll-behavior: smooth;
+    }
+
+    /* Fixed WebGL Canvas */
+    #webgl-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    /* Scroll Experience Container */
+    .scroll-container {
+      position: relative;
+      z-index: 2;
+      pointer-events: auto;
+    }
+
+    .section {
+      min-height: 110vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 7vw;
+      pointer-events: none;
+    }
+
+    .section.right { align-items: flex-end; }
+    .section.center { align-items: center; }
+
+    .card {
+      background: rgba(10, 15, 30, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(0, 240, 255, 0.28);
+      border-radius: 20px;
+      padding: 32px 36px;
+      max-width: 520px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8), 0 0 30px rgba(0, 240, 255, 0.12);
+      pointer-events: auto;
+      transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(0, 240, 255, 0.7);
+      transform: translateY(-4px);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 5px 14px;
+      background: linear-gradient(90deg, #00f0ff, #7000ff);
+      color: #000;
+      font-size: 11px;
+      font-weight: 900;
+      border-radius: 30px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      font-size: 3.2rem;
+      font-weight: 900;
+      line-height: 1.08;
+      margin-bottom: 14px;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #ffffff 40%, #00f0ff 100%);
+      background-clip: text;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+    }
+
+    h2 {
+      font-size: 2.2rem;
+      font-weight: 800;
+      margin-bottom: 12px;
+      color: #00f0ff;
+    }
+
+    p {
+      font-size: 1.05rem;
+      line-height: 1.65;
+      color: #a8b8d8;
+      margin-bottom: 22px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 30px;
+      background: linear-gradient(135deg, #00f0ff, #0066ff);
+      color: #000;
+      font-weight: 800;
+      font-size: 0.95rem;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.45);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 35px rgba(0, 240, 255, 0.8);
+    }
+
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #00f0ff;
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      box-shadow: none;
+    }
+    .btn-secondary:hover {
+      background: rgba(0, 240, 255, 0.2);
+    }
+
+    /* Fixed Racing HUD Overlay */
+    .hud {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 10;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 24px 32px;
+    }
+
+    .hud-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: auto;
+    }
+
+    .hud-bottom {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      pointer-events: auto;
+    }
+
+    .telemetry-pill {
+      background: rgba(10, 15, 30, 0.85);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 14px;
+      padding: 12px 20px;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      display: flex;
+      gap: 20px;
+      backdrop-filter: blur(10px);
+    }
+
+    .speed-cluster {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .speedometer {
+      background: radial-gradient(circle, rgba(0, 240, 255, 0.12) 0%, rgba(10, 15, 30, 0.95) 75%);
+      border: 2px solid #00f0ff;
+      border-radius: 50%;
+      width: 135px;
+      height: 135px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 35px rgba(0, 240, 255, 0.35);
+      position: relative;
+    }
+
+    .speed-val {
+      font-size: 2.8rem;
+      font-weight: 900;
+      color: #fff;
+      font-family: 'Courier New', Courier, monospace;
+      line-height: 1;
+    }
+
+    .speed-unit {
+      font-size: 0.72rem;
+      color: #00f0ff;
+      letter-spacing: 2px;
+      font-weight: 700;
+      margin-top: 4px;
+    }
+
+    .gear-box {
+      background: rgba(10, 15, 30, 0.9);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      border-radius: 12px;
+      padding: 12px 18px;
+      text-align: center;
+    }
+
+    .gear-label { font-size: 10px; color: #8899bb; text-transform: uppercase; letter-spacing: 1px; }
+    .gear-val { font-size: 2rem; font-weight: 900; color: #00f0ff; font-family: monospace; }
+
+    #minimap {
+      width: 140px;
+      height: 140px;
+      background: rgba(10, 15, 30, 0.85);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      border-radius: 16px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+    }
+
+    .drive-banner {
+      display: none;
+      background: linear-gradient(90deg, #ff0055, #ff5500);
+      color: #fff;
+      padding: 10px 22px;
+      border-radius: 25px;
+      font-weight: 900;
+      font-size: 0.9rem;
+      letter-spacing: 1.5px;
+      box-shadow: 0 0 25px rgba(255, 0, 85, 0.6);
+      animation: bannerPulse 1.2s infinite alternate;
+    }
+
+    @keyframes bannerPulse {
+      from { transform: scale(0.98); opacity: 0.85; }
+      to { transform: scale(1.02); opacity: 1; }
+    }
+
+    /* Garage Customizer Controls */
+    .color-picker {
+      display: flex;
+      gap: 12px;
+      margin-top: 14px;
+      margin-bottom: 20px;
+    }
+
+    .color-swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      cursor: pointer;
+      border: 2px solid #fff;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .color-swatch:hover {
+      transform: scale(1.25);
+      box-shadow: 0 0 15px currentColor;
+    }
+
+    /* Leaderboard Table inside card */
+    .leaderboard-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      font-size: 0.9rem;
+    }
+    .leaderboard-table th, .leaderboard-table td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .leaderboard-table th { color: #00f0ff; font-weight: 800; }
+    .leaderboard-table td { color: #cad5ee; }
+
+    .instructions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .key-badge {
+      background: rgba(0, 240, 255, 0.15);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+    }
+    .key-badge b { color: #00f0ff; }
+  </style>
+</head>
+<body>
+
+  <!-- WebGL 3D Canvas -->
+  <canvas id="webgl-canvas"></canvas>
+
+  <!-- Racing HUD -->
+  <div class="hud">
+    <div class="hud-top">
+      <div class="telemetry-pill">
+        <span>TRACK: <b style="color: #00f0ff">NEO-CIRCUIT 3D</b></span>
+        <span>TIER-2 API: <b id="backend-status" style="color: #00ff66">ONLINE (3000)</b></span>
+        <span>LAP TIME: <b id="lap-timer" style="color: #fff">00:00.000</b></span>
+      </div>
+      <div class="drive-banner" id="drive-banner">🎮 DRIVE MODE: W/A/S/D STEER + SHIFT TURBO</div>
+      <button class="btn btn-secondary" id="audio-toggle" style="padding: 10px 18px; font-size: 0.85rem;">
+        🔊 Engine Audio: OFF
+      </button>
+    </div>
+
+    <div class="hud-bottom">
+      <div class="speed-cluster">
+        <div class="speedometer">
+          <div class="speed-val" id="hud-speed">0</div>
+          <div class="speed-unit">KM / H</div>
+        </div>
+        <div class="gear-box">
+          <div class="gear-label">Gear</div>
+          <div class="gear-val" id="hud-gear">1</div>
+        </div>
+      </div>
+      <canvas id="minimap"></canvas>
+    </div>
+  </div>
+
+  <!-- Scroll Storyline Sections -->
+  <div class="scroll-container">
+    
+    <!-- Hero / Starting Grid -->
+    <section class="section">
+      <div class="card">
+        <span class="badge">Two-Tier WebGL Application</span>
+        <h1>CYBERTRACK 3D</h1>
+        <p>A full two-tier application combining real-time 3D Three.js graphics and scroll-driven camera cinematography with a dedicated backend telemetry tier.</p>
+        <p style="color: #00f0ff; font-weight: bold;">👇 Scroll down to ignite the hyper-drive engine!</p>
+        <button class="btn" onclick="window.scrollTo({top: window.innerHeight * 1.1, behavior: 'smooth'})">
+          🏁 Start Fly-Through
+        </button>
+      </div>
+    </section>
+
+    <!-- Sector 1: Cyber Tunnel & Speed Run -->
+    <section class="section right">
+      <div class="card">
+        <span class="badge">Sector 1 • High Velocity Tunnel</span>
+        <h2>Neon Tunnel Sprint</h2>
+        <p>The race car hits 290 km/h under pulsing neon arches. Real-time dynamic point lights and asphalt specular reflection react as the vehicle rockets forward.</p>
+        
+        <span style="font-size: 0.85rem; font-weight: bold; color: #8899bb;">CUSTOMIZE VEHICLE LIVERY:</span>
+        <div class="color-picker">
+          <div class="color-swatch" style="background: #00f0ff;" onclick="setCarColor('#00f0ff')"></div>
+          <div class="color-swatch" style="background: #ff0055;" onclick="setCarColor('#ff0055')"></div>
+          <div class="color-swatch" style="background: #ffbb00;" onclick="setCarColor('#ffbb00')"></div>
+          <div class="color-swatch" style="background: #00ff66;" onclick="setCarColor('#00ff66')"></div>
+          <div class="color-swatch" style="background: #222226;" onclick="setCarColor('#222226')"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sector 2: The Hairpin Drift Curve -->
+    <section class="section">
+      <div class="card">
+        <span class="badge">Sector 2 • Hairpin Chicane</span>
+        <h2>Apex Drift Zone</h2>
+        <p>The camera automatically pivots to capture lateral drift angles and tire smoke particles as the chassis balances across banked curbs.</p>
+      </div>
+    </section>
+
+    <!-- Sector 3: Elevated Bridge & Skyway -->
+    <section class="section right">
+      <div class="card">
+        <span class="badge">Sector 3 • Sky Bridge</span>
+        <h2>Elevated Overpass</h2>
+        <p>Climb 45 meters above the circuit floor overlooking the glowing holographic cityscape and illuminated track ribbon.</p>
+      </div>
+    </section>
+
+    <!-- Sector 4: Interactive Drive Mode -->
+    <section class="section center">
+      <div class="card" style="max-width: 640px; text-align: center;">
+        <span class="badge">Real-Time Physics</span>
+        <h2>Take Full Control</h2>
+        <p>Break away from scroll-driven animation and drive freely on the 3D race circuit with real-time acceleration, steering, and boost mechanics.</p>
+
+        <div class="instructions-grid">
+          <div class="key-badge"><b>W / ↑</b> Accelerate</div>
+          <div class="key-badge"><b>S / ↓</b> Brake & Reverse</div>
+          <div class="key-badge"><b>A / D / ← →</b> Steer Left & Right</div>
+          <div class="key-badge"><b>Shift</b> Nitro Boost (2x Speed)</div>
+        </div>
+
+        <button class="btn" id="drive-toggle-btn" style="width: 100%; justify-content: center;">
+          🚀 Enter Interactive Drive Mode
+        </button>
+      </div>
+    </section>
+
+    <!-- Sector 5: Two-Tier Leaderboard & Live Telemetry -->
+    <section class="section center">
+      <div class="card" style="max-width: 680px; width: 100%;">
+        <span class="badge">Tier 2 Data Tier</span>
+        <h2>Circuit Telemetry & Leaderboard</h2>
+        <p>Live sector times recorded and fetched asynchronously from the Tier 2 Express REST API.</p>
+
+        <table class="leaderboard-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Driver</th>
+              <th>Lap Time</th>
+              <th>Top Speed</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-body">
+            <tr><td colspan="5">Loading leaderboard from Tier 2 API...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. THREE.JS SCENE SETUP & ENVIRONMENT
+    // =========================================================================
+    const canvas = document.getElementById('webgl-canvas');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x04060d);
+    scene.fog = new THREE.FogExp2(0x04060d, 0.0032);
+
+    const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+
+    // Atmospheric Lights
+    const ambientLight = new THREE.AmbientLight(0x223366, 1.4);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0x77bbff, 2.2);
+    sunLight.position.set(150, 250, 100);
+    scene.add(sunLight);
+
+    // =========================================================================
+    // 2. PROCEDURAL 3D RACE TRACK SPLINE
+    // =========================================================================
+    const trackPoints = [
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(180, 25, -120),
+      new THREE.Vector3(340, 10, -90),
+      new THREE.Vector3(420, -15, 140),
+      new THREE.Vector3(260, 35, 320),
+      new THREE.Vector3(60, 15, 380),
+      new THREE.Vector3(-200, 0, 280),
+      new THREE.Vector3(-340, -20, 90),
+      new THREE.Vector3(-280, 25, -160),
+      new THREE.Vector3(-120, 8, -90)
+    ];
+
+    const curve = new THREE.CatmullRomCurve3(trackPoints, true, 'centripetal');
+
+    // Track Surface (Asphalt)
+    const trackGeo = new THREE.TubeGeometry(curve, 350, 9, 8, true);
+    const trackMat = new THREE.MeshStandardMaterial({
+      color: 0x141824,
+      roughness: 0.5,
+      metalness: 0.3
+    });
+    const trackMesh = new THREE.Mesh(trackGeo, trackMat);
+    trackMesh.scale.set(1, 0.14, 1);
+    scene.add(trackMesh);
+
+    // Glowing Neon Curbs
+    const curbGeo = new THREE.TubeGeometry(curve, 350, 0.55, 6, true);
+    const curbMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    const curbMesh = new THREE.Mesh(curbGeo, curbMat);
+    curbMesh.scale.set(1, 0.14, 1);
+    scene.add(curbMesh);
+
+    // Cyberpunk Tunnel Rings
+    for (let i = 0; i < 30; i++) {
+      const t = 0.08 + i * 0.006;
+      const pt = curve.getPointAt(t);
+      const ringGeo = new THREE.TorusGeometry(15, 0.4, 8, 24);
+      const ringMat = new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0x00f0ff : 0xff0066 });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.position.copy(pt);
+      ring.lookAt(curve.getPointAt((t + 0.002) % 1));
+      scene.add(ring);
+    }
+
+    // Ground Grid & Holographic Horizon
+    const groundGrid = new THREE.GridHelper(1600, 70, 0x00f0ff, 0x101a35);
+    groundGrid.position.y = -35;
+    scene.add(groundGrid);
+
+    // Dynamic Starfield
+    const starsGeo = new THREE.BufferGeometry();
+    const starCount = 1200;
+    const starCoords = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount * 3; i++) {
+      starCoords[i] = (Math.random() - 0.5) * 1600;
+    }
+    starsGeo.setAttribute('position', new THREE.BufferAttribute(starCoords, 3));
+    const starMat = new THREE.PointsMaterial({ color: 0x66aaff, size: 2.2 });
+    const starField = new THREE.Points(starsGeo, starMat);
+    scene.add(starField);
+
+    // =========================================================================
+    // 3. 3D RACE CAR MODEL
+    // =========================================================================
+    const carGroup = new THREE.Group();
+    scene.add(carGroup);
+
+    // Car Body / Chassis
+    const bodyGeo = new THREE.BoxGeometry(3.6, 0.85, 7.2);
+    const carBodyMat = new THREE.MeshStandardMaterial({
+      color: 0x00f0ff,
+      metalness: 0.85,
+      roughness: 0.18
+    });
+    const carBody = new THREE.Mesh(bodyGeo, carBodyMat);
+    carBody.position.y = 0.7;
+    carGroup.add(carBody);
+
+    // Aerodynamic Cockpit
+    const cabinGeo = new THREE.BoxGeometry(2.5, 0.8, 3.4);
+    const cabinMat = new THREE.MeshStandardMaterial({
+      color: 0x070c18,
+      metalness: 0.9,
+      roughness: 0.1
+    });
+    const cabin = new THREE.Mesh(cabinGeo, cabinMat);
+    cabin.position.set(0, 1.4, -0.4);
+    carGroup.add(cabin);
+
+    // Racing Rear Wing / Spoiler
+    const spoilerGeo = new THREE.BoxGeometry(3.9, 0.18, 1.0);
+    const spoiler = new THREE.Mesh(spoilerGeo, carBodyMat);
+    spoiler.position.set(0, 1.65, 3.2);
+    carGroup.add(spoiler);
+
+    // 4 Sport Wheels
+    const wheelGeo = new THREE.CylinderGeometry(0.72, 0.72, 0.65, 18);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 });
+    const wheelPositions = [
+      [-1.9, 0.72, 2.2], [1.9, 0.72, 2.2],
+      [-1.9, 0.72, -2.2], [1.9, 0.72, -2.2]
+    ];
+    wheelPositions.forEach(pos => {
+      const w = new THREE.Mesh(wheelGeo, wheelMat);
+      w.rotation.z = Math.PI / 2;
+      w.position.set(...pos);
+      carGroup.add(w);
+    });
+
+    // Glowing Taillights
+    const tailMat = new THREE.MeshBasicMaterial({ color: 0xff0044 });
+    const tailGeo = new THREE.BoxGeometry(0.85, 0.2, 0.15);
+    const tailL = new THREE.Mesh(tailGeo, tailMat);
+    tailL.position.set(-1.2, 0.8, 3.65);
+    const tailR = new THREE.Mesh(tailGeo, tailMat);
+    tailR.position.set(1.2, 0.8, 3.65);
+    carGroup.add(tailL, tailR);
+
+    // Front Headlights with Spotlights
+    const headMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+    const headGeo = new THREE.BoxGeometry(0.7, 0.2, 0.15);
+    const headL = new THREE.Mesh(headGeo, headMat);
+    headL.position.set(-1.2, 0.8, -3.65);
+    const headR = new THREE.Mesh(headGeo, headMat);
+    headR.position.set(1.2, 0.8, -3.65);
+    carGroup.add(headL, headR);
+
+    // Underglow Neon
+    const underglowLight = new THREE.PointLight(0x00f0ff, 2.5, 12);
+    underglowLight.position.set(0, 0.2, 0);
+    carGroup.add(underglowLight);
+
+    window.setCarColor = function(hex) {
+      carBodyMat.color.set(hex);
+      underglowLight.color.set(hex);
+    };
+
+    // =========================================================================
+    // 4. SYNTHESIZED WEB AUDIO (PROCEDURAL ENGINE SOUND)
+    // =========================================================================
+    let audioCtx = null;
+    let engineOsc = null;
+    let engineGain = null;
+    let audioActive = false;
+
+    document.getElementById('audio-toggle').addEventListener('click', () => {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        engineOsc = audioCtx.createOscillator();
+        engineGain = audioCtx.createGain();
+
+        engineOsc.type = 'sawtooth';
+        engineOsc.frequency.setValueAtTime(55, audioCtx.currentTime);
+        engineGain.gain.setValueAtTime(0.06, audioCtx.currentTime);
+
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(450, audioCtx.currentTime);
+
+        engineOsc.connect(filter);
+        filter.connect(engineGain);
+        engineGain.connect(audioCtx.destination);
+        engineOsc.start();
+      }
+
+      audioActive = !audioActive;
+      document.getElementById('audio-toggle').innerText = audioActive ? '🔊 Engine Audio: ON' : '🔇 Engine Audio: OFF';
+      engineGain.gain.setValueAtTime(audioActive ? 0.08 : 0, audioCtx.currentTime);
+    });
+
+    // =========================================================================
+    // 5. CONTROL MODES: SCROLL VS INTERACTIVE DRIVE
+    // =========================================================================
+    let isDriveMode = false;
+    let scrollProgress = 0;
+    let currentT = 0;
+    let driveSpeed = 0;
+    let steerAngle = 0;
+    let currentLapTime = 0;
+
+    const keys = { w: false, s: false, a: false, d: false, shift: false };
+    window.addEventListener('keydown', e => {
+      const k = e.key.toLowerCase();
+      if (['w', 'arrowup'].includes(k)) keys.w = true;
+      if (['s', 'arrowdown'].includes(k)) keys.s = true;
+      if (['a', 'arrowleft'].includes(k)) keys.a = true;
+      if (['d', 'arrowright'].includes(k)) keys.d = true;
+      if (e.key === 'Shift') keys.shift = true;
+    });
+
+    window.addEventListener('keyup', e => {
+      const k = e.key.toLowerCase();
+      if (['w', 'arrowup'].includes(k)) keys.w = false;
+      if (['s', 'arrowdown'].includes(k)) keys.s = false;
+      if (['a', 'arrowleft'].includes(k)) keys.a = false;
+      if (['d', 'arrowright'].includes(k)) keys.d = false;
+      if (e.key === 'Shift') keys.shift = false;
+    });
+
+    document.getElementById('drive-toggle-btn').addEventListener('click', toggleDriveMode);
+
+    function toggleDriveMode() {
+      isDriveMode = !isDriveMode;
+      document.getElementById('drive-banner').style.display = isDriveMode ? 'block' : 'none';
+      document.getElementById('drive-toggle-btn').innerText = isDriveMode ? '📜 Exit to Scroll Experience' : '🚀 Enter Interactive Drive Mode';
+      if (isDriveMode) {
+        window.scrollTo({ top: window.innerHeight * 4, behavior: 'smooth' });
+      }
+    }
+
+    window.addEventListener('scroll', () => {
+      if (!isDriveMode) {
+        const total = document.documentElement.scrollHeight - window.innerHeight;
+        scrollProgress = Math.max(0, Math.min(1, window.scrollY / total));
+      }
+    });
+
+    // =========================================================================
+    // 6. MAIN ANIMATION & TIER-2 TELEMETRY DISPATCH
+    // =========================================================================
+    let lastTelemetryPost = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+
+      let calcSpeed = 0;
+
+      if (!isDriveMode) {
+        // --- SCROLL-DRIVEN MODE ---
+        currentT += (scrollProgress - currentT) * 0.07;
+        const normT = ((currentT % 1) + 1) % 1;
+
+        const pos = curve.getPointAt(normT);
+        const forward = curve.getPointAt((normT + 0.008) % 1);
+
+        carGroup.position.copy(pos);
+        carGroup.lookAt(forward);
+
+        // Smooth Cinematic Follow Camera
+        const camOffset = new THREE.Vector3(0, 10, 26).applyQuaternion(carGroup.quaternion);
+        camera.position.lerp(pos.clone().add(camOffset), 0.09);
+        camera.lookAt(pos.clone().add(new THREE.Vector3(0, 2, 0)));
+
+        calcSpeed = Math.abs(scrollProgress - currentT) * 4800;
+      } else {
+        // --- INTERACTIVE DRIVE MODE ---
+        const accel = keys.shift ? 0.00065 : 0.00032;
+        if (keys.w) driveSpeed += accel;
+        if (keys.s) driveSpeed -= 0.00028;
+        driveSpeed *= 0.985; // Drag friction
+
+        currentT = (currentT + driveSpeed) % 1;
+        if (currentT < 0) currentT += 1;
+
+        if (keys.a) steerAngle += 0.035;
+        if (keys.d) steerAngle -= 0.035;
+        steerAngle *= 0.88;
+
+        const pos = curve.getPointAt(currentT);
+        const forward = curve.getPointAt((currentT + 0.008) % 1);
+
+        carGroup.position.copy(pos);
+        carGroup.lookAt(forward);
+        carGroup.rotateY(steerAngle);
+
+        // Dynamic Action Cam
+        const camDist = keys.shift ? 28 : 22;
+        const camOffset = new THREE.Vector3(0, 8, camDist).applyQuaternion(carGroup.quaternion);
+        camera.position.lerp(pos.clone().add(camOffset), 0.14);
+        camera.lookAt(pos.clone().add(new THREE.Vector3(0, 1.8, 0)));
+
+        calcSpeed = Math.abs(driveSpeed) * 38000;
+      }
+
+      // Update HUD Values
+      const displaySpeed = Math.min(320, Math.round(calcSpeed));
+      document.getElementById('hud-speed').innerText = displaySpeed;
+
+      const gear = displaySpeed === 0 ? 'N' : Math.min(6, Math.max(1, Math.floor(displaySpeed / 50) + 1));
+      document.getElementById('hud-gear').innerText = gear;
+
+      // Update Lap Timer
+      currentLapTime += 0.016;
+      const mins = Math.floor(currentLapTime / 60).toString().padStart(2, '0');
+      const secs = (currentLapTime % 60).toFixed(2).padStart(5, '0');
+      document.getElementById('lap-timer').innerText = `${mins}:${secs}`;
+
+      // Update Audio Frequency
+      if (audioActive && engineOsc) {
+        engineOsc.frequency.setValueAtTime(50 + displaySpeed * 1.5, audioCtx.currentTime);
+      }
+
+      // Render 2D Minimap
+      drawMinimap(currentT);
+
+      // Tier 2 Live Telemetry Post (every 1.5 seconds)
+      if (Date.now() - lastTelemetryPost > 1500) {
+        lastTelemetryPost = Date.now();
+        fetch('/api/telemetry', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            speed: displaySpeed,
+            rpm: displaySpeed * 28 + 950,
+            gear: gear === 'N' ? 0 : gear,
+            progress: currentT,
+            mode: isDriveMode ? 'drive' : 'scroll'
+          })
+        }).then(() => {
+          document.getElementById('backend-status').innerText = 'CONNECTED (TIER 2)';
+          document.getElementById('backend-status').style.color = '#00ff66';
+        }).catch(() => {
+          document.getElementById('backend-status').innerText = 'OFFLINE';
+          document.getElementById('backend-status').style.color = '#ff0055';
+        });
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // =========================================================================
+    // 7. MINIMAP 2D RADAR
+    // =========================================================================
+    const minimapCanvas = document.getElementById('minimap');
+    const mCtx = minimapCanvas.getContext('2d');
+    minimapCanvas.width = 140;
+    minimapCanvas.height = 140;
+
+    function drawMinimap(t) {
+      mCtx.clearRect(0, 0, 140, 140);
+      mCtx.strokeStyle = 'rgba(0, 240, 255, 0.45)';
+      mCtx.lineWidth = 2.5;
+      mCtx.beginPath();
+
+      for (let i = 0; i <= 60; i++) {
+        const pt = curve.getPointAt(i / 60);
+        const x = 70 + pt.x * 0.13;
+        const y = 70 + pt.z * 0.13;
+        if (i === 0) mCtx.moveTo(x, y);
+        else mCtx.lineTo(x, y);
+      }
+      mCtx.closePath();
+      mCtx.stroke();
+
+      // Current Car Indicator
+      const carPt = curve.getPointAt(((t % 1) + 1) % 1);
+      mCtx.fillStyle = '#ff0055';
+      mCtx.shadowColor = '#ff0055';
+      mCtx.shadowBlur = 8;
+      mCtx.beginPath();
+      mCtx.arc(70 + carPt.x * 0.13, 70 + carPt.z * 0.13, 4.5, 0, Math.PI * 2);
+      mCtx.fill();
+      mCtx.shadowBlur = 0;
+    }
+
+    // =========================================================================
+    // 8. TIER 2 LEADERBOARD SYNC
+    // =========================================================================
+    function loadLeaderboard() {
+      fetch('/api/leaderboard')
+        .then(res => res.json())
+        .then(data => {
+          const tbody = document.getElementById('leaderboard-body');
+          tbody.innerHTML = '';
+          data.forEach((row, idx) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td><b>#${idx + 1}</b></td>
+              <td><span style="display:inline-block; width:10px; height:10px; border-radius:50%; background:${row.carColor}; margin-right:6px;"></span>${row.driver}</td>
+              <td style="color:#00f0ff; font-family:monospace;">${row.lapTime}</td>
+              <td>${row.topSpeed} km/h</td>
+              <td>${row.date}</td>
+            `;
+            tbody.appendChild(tr);
+          });
+        })
+        .catch(() => {});
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    loadLeaderboard();
+    animate();
+  </script>
+</body>
+</html>
+

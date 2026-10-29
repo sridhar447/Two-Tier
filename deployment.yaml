@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: two-tier-deployment
+  labels:
+    app: two-tier-race
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: two-tier-race
+  template:
+    metadata:
+      labels:
+        app: two-tier-race
+    spec:
+      containers:
+        - name: two-tier-race-app
+          image: two-tier-race:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+
